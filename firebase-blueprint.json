@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile representing registered school employees and administrators",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["Pegawai", "GA", "Administrator"] },
+        "division": { "type": "string" },
+        "photo": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role", "division", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Report of an asset defect or general maintenance issue",
+      "type": "object",
+      "properties": {
+        "ticketNumber": { "type": "string" },
+        "reporter": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "division": { "type": "string" },
+        "location": { "type": "string" },
+        "building": { "type": "string" },
+        "floor": { "type": "string" },
+        "room": { "type": "string" },
+        "category": { "type": "string" },
+        "assetCode": { "type": "string" },
+        "assetName": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Rendah", "Sedang", "Tinggi", "Darurat"] },
+        "status": { "type": "string", "enum": ["Menunggu", "Diverifikasi", "Diproses", "Menunggu Sparepart", "Selesai", "Ditolak"] },
+        "assignedTo": { "type": "string" },
+        "estimateFinish": { "type": "string" },
+        "beforePhotos": { "type": "array" },
+        "afterPhotos": { "type": "array" },
+        "timeline": { "type": "array" },
+        "comments": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketNumber", "reporter", "email", "division", "location", "building", "floor", "room", "category", "title", "description", "priority", "status", "createdAt", "updatedAt"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "Details of school assets tracked with QR Codes",
+      "type": "object",
+      "properties": {
+        "assetCode": { "type": "string" },
+        "assetName": { "type": "string" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "building": { "type": "string" },
+        "floor": { "type": "string" },
+        "room": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "purchaseDate": { "type": "string" },
+        "assetValue": { "type": "number" },
+        "condition": { "type": "string", "enum": ["Baik", "Rusak Ringan", "Rusak Berat"] },
+        "qrCode": { "type": "string" },
+        "photo": { "type": "string" },
+        "maintenanceHistory": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["assetCode", "assetName", "category", "location", "building", "floor", "room", "condition", "createdAt"]
+    },
+    "Location": {
+      "title": "Location",
+      "description": "School locations or areas (e.g., classes, office rooms, dormitories)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "building": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "building", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Complaint categories (e.g., electricity, building, plumbing)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "icon", "color", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Predefined defect/complaint categories"
+    },
+    "/locations/{locationId}": {
+      "schema": "Location",
+      "description": "Registered buildings and locations"
+    },
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "School assets and hardware details"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Submitted complaints and facility maintenance tickets"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Registered employees and admin profiles"
+    }
+  }
+}

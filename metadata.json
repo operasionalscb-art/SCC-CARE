@@ -1,0 +1,6 @@
+{
+  "name": "SCB-CARE",
+  "description": "Sekolah Cendekia BAZNAS - Complaint and Asset Repair System. Sistem pelaporan kerusakan sarana dan prasarana sekolah untuk mempermudah pelaporan, mempercepat perbaikan, memonitor progres secara real-time, dan mendokumentasikan riwayat pemeliharaan aset sekolah.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
