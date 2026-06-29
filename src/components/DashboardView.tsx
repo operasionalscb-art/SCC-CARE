@@ -17,9 +17,11 @@ interface DashboardViewProps {
   locations: Location[];
   onViewTicket: (ticketNumber: string) => void;
   darkMode: boolean;
+  isGuest?: boolean;
+  onLoginClick?: () => void;
 }
 
-export default function DashboardView({ reports, assets, categories, locations, onViewTicket, darkMode }: DashboardViewProps) {
+export default function DashboardView({ reports, assets, categories, locations, onViewTicket, darkMode, isGuest, onLoginClick }: DashboardViewProps) {
   // Stat counters
   const stats = useMemo(() => {
     let total = reports.length;
@@ -191,6 +193,33 @@ export default function DashboardView({ reports, assets, categories, locations, 
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Guest Mode Warning Banner */}
+      {isGuest && (
+        <div id="guest-alert-banner" className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-5.5 h-5.5" />
+            </div>
+            <div className="space-y-1 text-left">
+              <h3 className="font-extrabold text-xs text-amber-800 dark:text-amber-300">
+                Mode Pengunjung Anonim (Belum Masuk)
+              </h3>
+              <p className="text-[11px] text-amber-700/85 dark:text-amber-400/80 leading-relaxed font-light">
+                Anda hanya dapat melihat dashboard analisis ini. Untuk membuat pengaduan aduan kerusakan sarana prasarana sekolah, silakan masuk atau registrasi akun pegawai terlebih dahulu.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onLoginClick}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow transition shrink-0 flex items-center gap-1.5 self-start sm:self-center cursor-pointer"
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Masuk / Registrasi Sekarang</span>
+          </button>
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-primary to-emerald-800 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-emerald-600 rounded-full opacity-20 blur-2xl"></div>
