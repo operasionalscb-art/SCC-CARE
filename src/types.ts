@@ -9,6 +9,7 @@ export interface UserProfile {
   photo?: string;
   photoURL?: string;
   createdAt: string;
+  permissions?: Record<string, boolean>;
 }
 
 export interface Comment {

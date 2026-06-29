@@ -105,6 +105,14 @@ export default function App() {
       // Sync categories
       const cats = await dbService.getCategories();
       setCategories(cats);
+
+      // Sync logged in user profile to get any updated permissions/roles
+      if (currentUser && currentUser.email && currentUser.uid !== 'demo-admin') {
+        const freshUser = await dbService.getUserProfileByEmail(currentUser.email);
+        if (freshUser) {
+          setCurrentUser(freshUser);
+        }
+      }
     } catch (e) {
       console.error("Database connection failed, local backup running.", e);
     } finally {
@@ -375,13 +383,33 @@ export default function App() {
     { id: 'pengaturan', label: 'Pengaturan Profil', icon: <Settings className="w-4 h-4" />, role: 'Semua' },
   ];
 
-  // Filter navigation items by current user permissions
-  const filteredNavItems = NAV_ITEMS.filter(item => {
-    if (item.role === 'Semua') return true;
-    if (item.role === 'GA_Admin') return currentUser.role === 'GA' || currentUser.role === 'Administrator';
-    if (item.role === 'Administrator') return currentUser.role === 'Administrator';
+  // Helper to check user permission (supports checklist permissions & defaults)
+  const checkUserPermission = (itemId: string): boolean => {
+    if (currentUser.permissions && currentUser.permissions[itemId] !== undefined) {
+      return !!currentUser.permissions[itemId];
+    }
+    // Default fallback based on role
+    if (itemId === 'dashboard' || itemId === 'buat-laporan' || itemId === 'daftar-laporan' || itemId === 'data-aset' || itemId === 'riwayat-pemeliharaan' || itemId === 'pengaturan') {
+      return true;
+    }
+    if (itemId === 'monitoring' || itemId === 'rekap-laporan') {
+      return currentUser.role === 'GA' || currentUser.role === 'Administrator';
+    }
+    if (itemId === 'sektor-lokasi' || itemId === 'kategori-aduan' || itemId === 'kelola-pengguna') {
+      return currentUser.role === 'Administrator';
+    }
     return false;
-  });
+  };
+
+  // Filter navigation items by current user permissions
+  const filteredNavItems = NAV_ITEMS.filter(item => checkUserPermission(item.id));
+
+  // Auto-redirect to first permitted tab if active tab becomes disallowed
+  useEffect(() => {
+    if (filteredNavItems.length > 0 && !filteredNavItems.some(item => item.id === activeTab)) {
+      setActiveTab(filteredNavItems[0].id);
+    }
+  }, [activeTab, filteredNavItems]);
 
   // Render Sub views dynamically based on Active Tab State
   const renderSubView = () => {

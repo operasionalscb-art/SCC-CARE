@@ -1,10 +1,42 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, UserPlus, Shield, Trash2, Edit2, Check, X, 
-  Search, Filter, CheckCircle, Mail, Briefcase, Plus, UserCheck
+  Search, Filter, CheckCircle, Mail, Briefcase, Plus, UserCheck,
+  LayoutDashboard, ClipboardPlus, Sliders, ListFilter, Tag, 
+  MapPin, Wrench, Clock, FileSpreadsheet, Settings 
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 import * as dbService from '../dbService';
+
+export const ACCESS_CATEGORIES = [
+  { id: 'dashboard', label: 'Dashboard Analisis', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+  { id: 'buat-laporan', label: 'Buat Aduan', icon: <ClipboardPlus className="w-3.5 h-3.5" /> },
+  { id: 'monitoring', label: 'Monitoring Master', icon: <Sliders className="w-3.5 h-3.5" /> },
+  { id: 'daftar-laporan', label: 'Daftar Laporan', icon: <ListFilter className="w-3.5 h-3.5" /> },
+  { id: 'data-aset', label: 'Data Aset & QR', icon: <Tag className="w-3.5 h-3.5" /> },
+  { id: 'sektor-lokasi', label: 'Kelola Sektor', icon: <MapPin className="w-3.5 h-3.5" /> },
+  { id: 'kategori-aduan', label: 'Kelola Kategori', icon: <Wrench className="w-3.5 h-3.5" /> },
+  { id: 'kelola-pengguna', label: 'Kelola Pengguna', icon: <Users className="w-3.5 h-3.5" /> },
+  { id: 'riwayat-pemeliharaan', label: 'Riwayat Selesai', icon: <Clock className="w-3.5 h-3.5" /> },
+  { id: 'rekap-laporan', label: 'Cetak Laporan', icon: <FileSpreadsheet className="w-3.5 h-3.5" /> },
+  { id: 'pengaturan', label: 'Pengaturan Profil', icon: <Settings className="w-3.5 h-3.5" /> },
+];
+
+export const getRoleDefaultPermissions = (role: UserRole): Record<string, boolean> => {
+  return {
+    'dashboard': true,
+    'buat-laporan': true,
+    'monitoring': role === 'GA' || role === 'Administrator',
+    'daftar-laporan': true,
+    'data-aset': true,
+    'sektor-lokasi': role === 'Administrator',
+    'kategori-aduan': role === 'Administrator',
+    'kelola-pengguna': role === 'Administrator',
+    'riwayat-pemeliharaan': true,
+    'rekap-laporan': role === 'GA' || role === 'Administrator',
+    'pengaturan': true,
+  };
+};
 
 interface UserManagementViewProps {
   currentUser: UserProfile;
@@ -22,6 +54,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   const [regRole, setRegRole] = useState<UserRole>('Pegawai');
   const [regDivision, setRegDivision] = useState('Asrama');
   const [submitting, setSubmitting] = useState(false);
+  const [regPermissions, setRegPermissions] = useState<Record<string, boolean>>(() => getRoleDefaultPermissions('Pegawai'));
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +65,12 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   const [editingUid, setEditingUid] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('Pegawai');
   const [editDivision, setEditDivision] = useState('Asrama');
+  const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
+
+  // Sync default permissions when registration role changes
+  useEffect(() => {
+    setRegPermissions(getRoleDefaultPermissions(regRole));
+  }, [regRole]);
 
   // Load registered users on mount
   const fetchUsers = async () => {
@@ -83,7 +122,8 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
         role: regRole,
         division: regDivision,
         photoURL: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 999999)}?auto=format&fit=crop&q=80&w=150`,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        permissions: regPermissions
       };
 
       await dbService.createUserProfile(newProfile);
@@ -94,6 +134,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
       setRegEmail('');
       setRegRole('Pegawai');
       setRegDivision('Asrama');
+      setRegPermissions(getRoleDefaultPermissions('Pegawai'));
       setShowAddForm(false);
       
       setToastMessage("Pengguna baru berhasil diregistrasi!");
@@ -109,10 +150,17 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   // Handle saving inline edits
   const handleSaveInlineEdit = async (uid: string) => {
     try {
-      await dbService.updateUserRoleAndDivision(uid, editRole, editDivision);
+      await dbService.updateUserRoleAndDivision(uid, editRole, editDivision, editPermissions);
       
       // Update local UI state
-      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: editRole, division: editDivision } : u));
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: editRole, division: editDivision, permissions: editPermissions } : u));
+      
+      // If updating oneself, sync immediately
+      if (uid === currentUser.uid) {
+        const updatedSelf = { ...currentUser, role: editRole, division: editDivision, permissions: editPermissions };
+        localStorage.setItem('scb_care_user', JSON.stringify(updatedSelf));
+      }
+
       setEditingUid(null);
       
       setToastMessage("Hak akses pengguna berhasil diperbarui!");
@@ -274,8 +322,43 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
               </select>
             </div>
 
+            {/* Kustomisasi Hak Akses */}
+            <div className="md:col-span-4 space-y-3 mt-4 pt-4 border-t dark:border-slate-700/50">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
+                  <Shield className="w-4 h-4 text-primary" />
+                  <span>Kustomisasi Hak Akses Fitur / Menu Utama</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Pilih menu/halaman yang dapat diakses oleh pengguna ini.</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-750/60">
+                {ACCESS_CATEGORIES.map(cat => (
+                  <label 
+                    key={cat.id} 
+                    className="flex items-center gap-2.5 p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!regPermissions[cat.id]}
+                      onChange={(e) => {
+                        setRegPermissions(prev => ({
+                          ...prev,
+                          [cat.id]: e.target.checked
+                        }));
+                      }}
+                      className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary focus:ring-2 accent-primary"
+                    />
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-slate-400 shrink-0">{cat.icon}</span>
+                      <span className="text-slate-600 dark:text-slate-300 font-medium truncate text-[11px]">{cat.label}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Submit button */}
-            <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t dark:border-slate-700/50 mt-2">
+            <div className="md:col-span-4 flex justify-end gap-2 pt-4 border-t dark:border-slate-700/50 mt-2">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
@@ -375,120 +458,177 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
                 {filteredUsers.map(user => {
                   const isEditing = editingUid === user.uid;
                   return (
-                    <tr key={user.uid} className="hover:bg-slate-50/40 dark:hover:bg-slate-900/10 transition">
-                      {/* Name & Photo column */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          {user.photoURL ? (
-                            <img src={user.photoURL} alt="avatar" className="w-9 h-9 rounded-full object-cover border shrink-0" />
+                    <React.Fragment key={user.uid}>
+                      <tr className="hover:bg-slate-50/40 dark:hover:bg-slate-900/10 transition">
+                        {/* Name & Photo column */}
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            {user.photoURL ? (
+                              <img src={user.photoURL} alt="avatar" className="w-9 h-9 rounded-full object-cover border shrink-0" />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                                {user.name[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-extrabold text-slate-800 dark:text-slate-200 text-sm">{user.name}</p>
+                              <span className="text-[9px] text-slate-400">Terdaftar: {new Date(user.createdAt || '').toLocaleDateString('id-ID')}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Email column */}
+                        <td className="p-4 font-medium text-slate-600 dark:text-slate-400">
+                          <div className="flex items-center gap-1.5">
+                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="font-mono">{user.email}</span>
+                          </div>
+                        </td>
+
+                        {/* Role selection / badge column */}
+                        <td className="p-4">
+                          {isEditing ? (
+                            <select
+                              value={editRole}
+                              onChange={(e) => {
+                                const newRole = e.target.value as UserRole;
+                                setEditRole(newRole);
+                                setEditPermissions(getRoleDefaultPermissions(newRole));
+                              }}
+                              className="px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                              <option value="Pegawai">Pegawai</option>
+                              <option value="GA">General Affair</option>
+                              <option value="Administrator">Administrator</option>
+                            </select>
                           ) : (
-                            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                              {user.name[0].toUpperCase()}
+                            <div className="space-y-1">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${getRoleBadgeStyle(user.role)}`}>
+                                {user.role}
+                              </span>
+                              {user.permissions && (
+                                <div className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold flex items-center gap-1 mt-0.5">
+                                  <Shield className="w-3 h-3 shrink-0" />
+                                  <span>Hak Akses Kustom</span>
+                                </div>
+                              )}
                             </div>
                           )}
-                          <div>
-                            <p className="font-extrabold text-slate-800 dark:text-slate-200 text-sm">{user.name}</p>
-                            <span className="text-[9px] text-slate-400">Terdaftar: {new Date(user.createdAt || '').toLocaleDateString('id-ID')}</span>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Email column */}
-                      <td className="p-4 font-medium text-slate-600 dark:text-slate-400">
-                        <div className="flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="font-mono">{user.email}</span>
-                        </div>
-                      </td>
-
-                      {/* Role selection / badge column */}
-                      <td className="p-4">
-                        {isEditing ? (
-                          <select
-                            value={editRole}
-                            onChange={(e) => setEditRole(e.target.value as UserRole)}
-                            className="px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary"
-                          >
-                            <option value="Pegawai">Pegawai</option>
-                            <option value="GA">General Affair</option>
-                            <option value="Administrator">Administrator</option>
-                          </select>
-                        ) : (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${getRoleBadgeStyle(user.role)}`}>
-                            {user.role}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Division selection / badge column */}
-                      <td className="p-4">
-                        {isEditing ? (
-                          <select
-                            value={editDivision}
-                            onChange={(e) => setEditDivision(e.target.value)}
-                            className="px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary"
-                          >
-                            <option value="Asrama">Asrama</option>
-                            <option value="Akademik">Akademik</option>
-                            <option value="Operasional">Operasional</option>
-                          </select>
-                        ) : (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${getDivisionBadgeStyle(user.division)}`}>
-                            {user.division || 'Asrama'}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions Column */}
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        {/* Division selection / badge column */}
+                        <td className="p-4">
                           {isEditing ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveInlineEdit(user.uid)}
-                                className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 rounded-xl font-bold transition flex items-center justify-center"
-                                title="Simpan Perubahan"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingUid(null)}
-                                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-750 dark:hover:bg-slate-700 dark:text-slate-300 rounded-xl font-bold transition flex items-center justify-center"
-                                title="Batalkan"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </>
+                            <select
+                              value={editDivision}
+                              onChange={(e) => setEditDivision(e.target.value)}
+                              className="px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                              <option value="Asrama">Asrama</option>
+                              <option value="Akademik">Akademik</option>
+                              <option value="Operasional">Operasional</option>
+                            </select>
                           ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingUid(user.uid);
-                                  setEditRole(user.role);
-                                  setEditDivision(user.division || 'Asrama');
-                                }}
-                                className="p-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-750 rounded-xl font-bold transition flex items-center justify-center"
-                                title="Kelola Hak Akses Peran"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteUser(user.uid, user.name)}
-                                disabled={user.uid === currentUser.uid || user.uid === 'demo-admin'}
-                                className="p-2 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-750 rounded-xl font-bold transition flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-                                title="Hapus Akun Pengguna"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${getDivisionBadgeStyle(user.division)}`}>
+                              {user.division || 'Asrama'}
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+
+                        {/* Actions Column */}
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveInlineEdit(user.uid)}
+                                  className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 rounded-xl font-bold transition flex items-center justify-center"
+                                  title="Simpan Perubahan"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingUid(null)}
+                                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-750 dark:hover:bg-slate-700 dark:text-slate-300 rounded-xl font-bold transition flex items-center justify-center"
+                                  title="Batalkan"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingUid(user.uid);
+                                    setEditRole(user.role);
+                                    setEditDivision(user.division || 'Asrama');
+                                    setEditPermissions(user.permissions || getRoleDefaultPermissions(user.role));
+                                  }}
+                                  className="p-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-750 rounded-xl font-bold transition flex items-center justify-center"
+                                  title="Kelola Hak Akses Peran"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(user.uid, user.name)}
+                                  disabled={user.uid === currentUser.uid || user.uid === 'demo-admin'}
+                                  className="p-2 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-750 rounded-xl font-bold transition flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Hapus Akun Pengguna"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Permission Checklist during edit */}
+                      {isEditing && (
+                        <tr className="bg-slate-50/50 dark:bg-slate-900/30">
+                          <td colSpan={5} className="p-4 pl-8 border-b border-slate-200/80 dark:border-slate-850">
+                            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/70 dark:border-slate-700 shadow-sm space-y-3">
+                              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
+                                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
+                                  <Shield className="w-4 h-4 text-primary" />
+                                  <span>Atur Ceklist Hak Akses Otorisasi Modul</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400">Centang atau hapus centang untuk mengatur hak akses spesifik bagi {user.name}.</span>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
+                                {ACCESS_CATEGORIES.map(cat => (
+                                  <label 
+                                    key={cat.id} 
+                                    className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-750 hover:bg-slate-100/70 dark:hover:bg-slate-750/70 transition cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={!!editPermissions[cat.id]}
+                                      onChange={(e) => {
+                                        setEditPermissions(prev => ({
+                                          ...prev,
+                                          [cat.id]: e.target.checked
+                                        }));
+                                      }}
+                                      className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary focus:ring-2 accent-primary"
+                                    />
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="text-slate-400 shrink-0">{cat.icon}</span>
+                                      <span className="text-slate-600 dark:text-slate-300 font-medium truncate text-[11px]">{cat.label}</span>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>

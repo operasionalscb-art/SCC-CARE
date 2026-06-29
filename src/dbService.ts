@@ -941,8 +941,20 @@ export const getLocations = async (): Promise<Location[]> => {
       
       if (list.length > 0) {
         console.log(`[dbService.getLocations] Successfully loaded and validated ${list.length} locations. Synchronizing with local storage.`);
-        localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(list));
-        return list;
+        // Deduplicate by name and building
+        const uniqueList: Location[] = [];
+        const seen = new Set<string>();
+        for (const loc of list) {
+          if (loc && loc.name && loc.building) {
+            const key = `${loc.name.trim()}_${loc.building.trim()}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              uniqueList.push(loc);
+            }
+          }
+        }
+        localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(uniqueList));
+        return uniqueList;
       } else {
         console.warn(`[dbService.getLocations] Firestore returned an empty "locations" collection.`);
       }
@@ -958,7 +970,18 @@ export const getLocations = async (): Promise<Location[]> => {
     try {
       const parsed = JSON.parse(local) as Location[];
       console.log(`[dbService.getLocations] Fallback: Successfully loaded ${parsed.length} locations from localStorage.`);
-      return parsed;
+      const uniqueList: Location[] = [];
+      const seen = new Set<string>();
+      for (const loc of parsed) {
+        if (loc && loc.name && loc.building) {
+          const key = `${loc.name.trim()}_${loc.building.trim()}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueList.push(loc);
+          }
+        }
+      }
+      return uniqueList;
     } catch (parseError) {
       console.error(`[dbService.getLocations] Fallback: Failed to parse locations from localStorage:`, parseError);
     }
@@ -1020,8 +1043,20 @@ export const getCategories = async (): Promise<Category[]> => {
         list.push({ id: docSnap.id, ...docSnap.data() } as Category);
       });
       if (list.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(list));
-        return list;
+        // Deduplicate by category name to avoid key warnings/errors from multiple seeding or duplicate entries
+        const uniqueList: Category[] = [];
+        const seenNames = new Set<string>();
+        for (const cat of list) {
+          if (cat && cat.name) {
+            const trimmedName = cat.name.trim();
+            if (!seenNames.has(trimmedName)) {
+              seenNames.add(trimmedName);
+              uniqueList.push(cat);
+            }
+          }
+        }
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(uniqueList));
+        return uniqueList;
       }
     } catch (e) {
       console.warn("Firestore getCategories failed, falling back to localStorage", e);
@@ -1029,7 +1064,26 @@ export const getCategories = async (): Promise<Category[]> => {
   }
 
   const local = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
-  return local ? JSON.parse(local) : [];
+  if (local) {
+    try {
+      const list = JSON.parse(local) as Category[];
+      const uniqueList: Category[] = [];
+      const seenNames = new Set<string>();
+      for (const cat of list) {
+        if (cat && cat.name) {
+          const trimmedName = cat.name.trim();
+          if (!seenNames.has(trimmedName)) {
+            seenNames.add(trimmedName);
+            uniqueList.push(cat);
+          }
+        }
+      }
+      return uniqueList;
+    } catch (err) {
+      console.error("Failed to parse local categories", err);
+    }
+  }
+  return [];
 };
 
 export const createCategory = async (category: Omit<Category, "id" | "createdAt">): Promise<Category> => {
@@ -1140,11 +1194,15 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
   return local ? JSON.parse(local) : [];
 };
 
-export const updateUserRoleAndDivision = async (uid: string, role: UserRole, division: string): Promise<void> => {
+export const updateUserRoleAndDivision = async (uid: string, role: UserRole, division: string, permissions?: Record<string, boolean>): Promise<void> => {
   if (isFirebaseAvailable() && !uid.startsWith("demo-")) {
     try {
       const docRef = doc(db, "users", uid);
-      await updateDoc(docRef, { role, division });
+      const updatePayload: any = { role, division };
+      if (permissions) {
+        updatePayload.permissions = permissions;
+      }
+      await updateDoc(docRef, updatePayload);
     } catch (e) {
       console.error("Firestore updateUserRole failed, updating locally", e);
     }
@@ -1155,7 +1213,12 @@ export const updateUserRoleAndDivision = async (uid: string, role: UserRole, div
     const users = JSON.parse(local) as UserProfile[];
     const idx = users.findIndex(u => u.uid === uid);
     if (idx !== -1) {
-      users[idx] = { ...users[idx], role, division };
+      users[idx] = { 
+        ...users[idx], 
+        role, 
+        division,
+        ...(permissions ? { permissions } : {})
+      };
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     }
   }
