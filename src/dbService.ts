@@ -876,15 +876,48 @@ export const getAssets = async (): Promise<Asset[]> => {
       snap.forEach(docSnap => {
         list.push({ id: docSnap.id, ...docSnap.data() } as Asset);
       });
-      localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(list));
-      return list;
+      if (list.length > 0) {
+        // Deduplicate by assetCode to guarantee uniqueness of keys
+        const uniqueList: Asset[] = [];
+        const seenCodes = new Set<string>();
+        for (const asset of list) {
+          if (asset && asset.assetCode) {
+            const code = asset.assetCode.trim();
+            if (!seenCodes.has(code)) {
+              seenCodes.add(code);
+              uniqueList.push(asset);
+            }
+          }
+        }
+        localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(uniqueList));
+        return uniqueList;
+      }
     } catch (e) {
       console.warn("Firestore getAssets failed, falling back to localStorage", e);
     }
   }
 
   const local = localStorage.getItem(STORAGE_KEYS.ASSETS);
-  return local ? JSON.parse(local) : [];
+  if (local) {
+    try {
+      const list = JSON.parse(local) as Asset[];
+      const uniqueList: Asset[] = [];
+      const seenCodes = new Set<string>();
+      for (const asset of list) {
+        if (asset && asset.assetCode) {
+          const code = asset.assetCode.trim();
+          if (!seenCodes.has(code)) {
+            seenCodes.add(code);
+            uniqueList.push(asset);
+          }
+        }
+      }
+      return uniqueList;
+    } catch (e) {
+      console.error("Failed to parse local assets", e);
+    }
+  }
+  return [];
 };
 
 export const createAsset = async (asset: Omit<Asset, "id">): Promise<Asset> => {
