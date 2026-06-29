@@ -574,6 +574,42 @@ export const ensureDatabaseSeeded = async () => {
     const localLocs = localStorage.getItem(STORAGE_KEYS.LOCATIONS);
     const isLocalLocsEmpty = !localLocs || JSON.parse(localLocs).length === 0;
     const isLocalEmpty = localStorage.getItem("scb_db_seeded") !== "true" || isLocalLocsEmpty;
+
+    // Self-healing check: Ensure demo users have correct passwords in localStorage/Firestore if already seeded
+    const localUsersStr = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (localUsersStr) {
+      try {
+        const localUsers = JSON.parse(localUsersStr) as UserProfile[];
+        const adminUser = localUsers.find(u => u.uid === "demo-admin" || u.email === "operasional.scb@gmail.com");
+        if (adminUser && (!adminUser.password || adminUser.password !== "admin123")) {
+          console.log("Self-healing: Updating default admin password to admin123");
+          const updatedUsers = localUsers.map(u => {
+            if (u.uid === "demo-admin" || u.email === "operasional.scb@gmail.com") {
+              return { ...u, password: "admin123" };
+            }
+            if (u.uid === "demo-ga" && !u.password) {
+              return { ...u, password: "ga123" };
+            }
+            if (u.uid === "demo-pegawai" && !u.password) {
+              return { ...u, password: "pegawai123" };
+            }
+            return u;
+          });
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+          
+          if (isFirebaseAvailable()) {
+            const usrCol = collection(db, "users");
+            for (const usr of updatedUsers) {
+              if (usr.uid.startsWith("demo-")) {
+                await setDoc(doc(usrCol, usr.uid), usr);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Self-healing users password check failed:", e);
+      }
+    }
     
     // Process Categories & Locations
     let categoryCount = 0;
@@ -648,6 +684,7 @@ export const ensureDatabaseSeeded = async () => {
           role: "Administrator",
           division: "GA",
           photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
+          password: "admin123",
           createdAt: new Date().toISOString()
         },
         {
@@ -657,6 +694,7 @@ export const ensureDatabaseSeeded = async () => {
           role: "GA",
           division: "GA",
           photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
+          password: "ga123",
           createdAt: new Date().toISOString()
         },
         {
@@ -666,6 +704,7 @@ export const ensureDatabaseSeeded = async () => {
           role: "Pegawai",
           division: "Kesiswaan",
           photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200",
+          password: "pegawai123",
           createdAt: new Date().toISOString()
         }
       ];
@@ -1248,13 +1287,16 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
   return local ? JSON.parse(local) : [];
 };
 
-export const updateUserRoleAndDivision = async (uid: string, role: UserRole, division: string, permissions?: Record<string, boolean>): Promise<void> => {
-  if (isFirebaseAvailable() && !uid.startsWith("demo-")) {
+export const updateUserRoleAndDivision = async (uid: string, role: UserRole, division: string, permissions?: Record<string, boolean>, password?: string): Promise<void> => {
+  if (isFirebaseAvailable()) {
     try {
       const docRef = doc(db, "users", uid);
       const updatePayload: any = { role, division };
       if (permissions) {
         updatePayload.permissions = permissions;
+      }
+      if (password !== undefined) {
+        updatePayload.password = password;
       }
       await updateDoc(docRef, updatePayload);
     } catch (e) {
@@ -1271,7 +1313,8 @@ export const updateUserRoleAndDivision = async (uid: string, role: UserRole, div
         ...users[idx], 
         role, 
         division,
-        ...(permissions ? { permissions } : {})
+        ...(permissions ? { permissions } : {}),
+        ...(password !== undefined ? { password } : {})
       };
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     }

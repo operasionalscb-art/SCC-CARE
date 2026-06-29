@@ -3,7 +3,7 @@ import {
   Users, UserPlus, Shield, Trash2, Edit2, Check, X, 
   Search, Filter, CheckCircle, Mail, Briefcase, Plus, UserCheck,
   LayoutDashboard, ClipboardPlus, Sliders, ListFilter, Tag, 
-  MapPin, Wrench, Clock, FileSpreadsheet, Settings 
+  MapPin, Wrench, Clock, FileSpreadsheet, Settings, Eye, EyeOff, Lock
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 import * as dbService from '../dbService';
@@ -67,6 +67,12 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   const [editRole, setEditRole] = useState<UserRole>('Pegawai');
   const [editDivision, setEditDivision] = useState('Asrama');
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
+  const [editPassword, setEditPassword] = useState('');
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
+
+  const togglePasswordReveal = (uid: string) => {
+    setRevealedPasswords(prev => ({ ...prev, [uid]: !prev[uid] }));
+  };
 
   // Sync default permissions when registration role changes
   useEffect(() => {
@@ -153,14 +159,14 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   // Handle saving inline edits
   const handleSaveInlineEdit = async (uid: string) => {
     try {
-      await dbService.updateUserRoleAndDivision(uid, editRole, editDivision, editPermissions);
+      await dbService.updateUserRoleAndDivision(uid, editRole, editDivision, editPermissions, editPassword);
       
       // Update local UI state
-      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: editRole, division: editDivision, permissions: editPermissions } : u));
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: editRole, division: editDivision, permissions: editPermissions, password: editPassword } : u));
       
       // If updating oneself, sync immediately
       if (uid === currentUser.uid) {
-        const updatedSelf = { ...currentUser, role: editRole, division: editDivision, permissions: editPermissions };
+        const updatedSelf = { ...currentUser, role: editRole, division: editDivision, permissions: editPermissions, password: editPassword };
         localStorage.setItem('scb_care_user', JSON.stringify(updatedSelf));
       }
 
@@ -466,6 +472,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
                 <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
                   <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Profil Pengguna</th>
                   <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Alamat Email</th>
+                  <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Password Akun</th>
                   <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Peran (Hak Akses)</th>
                   <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Divisi Pelapor</th>
                   <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-[10px] text-right">Aksi & Otorisasi</th>
@@ -500,6 +507,49 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
                             <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="font-mono">{user.email}</span>
                           </div>
+                        </td>
+
+                        {/* Password column */}
+                        <td className="p-4 font-medium text-slate-600 dark:text-slate-400">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <input
+                                type="text"
+                                value={editPassword}
+                                onChange={(e) => setEditPassword(e.target.value)}
+                                placeholder="Password baru"
+                                className="w-32 px-2.5 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              {user.password ? (
+                                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 px-2 py-1 rounded-xl">
+                                  <span className="font-mono text-xs select-all">
+                                    {revealedPasswords[user.uid] ? user.password : '••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePasswordReveal(user.uid)}
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700/80 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition shrink-0"
+                                    title={revealedPasswords[user.uid] ? "Sembunyikan password" : "Tampilkan password"}
+                                  >
+                                    {revealedPasswords[user.uid] ? (
+                                      <EyeOff className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <Eye className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-light italic">
+                                  Bebas (Tanpa Password)
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Role selection / badge column */}
@@ -583,6 +633,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
                                     setEditRole(user.role);
                                     setEditDivision(user.division || 'Asrama');
                                     setEditPermissions(user.permissions || getRoleDefaultPermissions(user.role));
+                                    setEditPassword(user.password || '');
                                   }}
                                   className="p-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-750 rounded-xl font-bold transition flex items-center justify-center"
                                   title="Kelola Hak Akses Peran"
@@ -607,7 +658,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
                       {/* Expanded Permission Checklist during edit */}
                       {isEditing && (
                         <tr className="bg-slate-50/50 dark:bg-slate-900/30">
-                          <td colSpan={5} className="p-4 pl-8 border-b border-slate-200/80 dark:border-slate-850">
+                          <td colSpan={6} className="p-4 pl-8 border-b border-slate-200/80 dark:border-slate-850">
                             <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/70 dark:border-slate-700 shadow-sm space-y-3">
                               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700">
                                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
