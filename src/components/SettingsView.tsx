@@ -11,6 +11,7 @@ interface SettingsViewProps {
   onResetDatabase: () => Promise<void>;
   onBackupDatabase: () => void;
   onRestoreDatabase: (jsonString: string) => Promise<boolean>;
+  onClearReports?: () => Promise<void>;
 }
 
 export default function SettingsView({ 
@@ -18,17 +19,36 @@ export default function SettingsView({
   onChangeUserRole,
   onResetDatabase,
   onBackupDatabase,
-  onRestoreDatabase
+  onRestoreDatabase,
+  onClearReports
 }: SettingsViewProps) {
   
   const [toastMessage, setToastMessage] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [isClearingReports, setIsClearingReports] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleRoleSwap = (role: UserRole) => {
     onChangeUserRole(role);
     setToastMessage(`Berhasil berpindah peran menjadi: ${role}`);
     setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  const handleClearAllReports = async () => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus seluruh data laporan kerusakan dari database? Sektor lokasi, kategori kerusakan, dan daftar aset akan tetap dipertahankan.")) {
+      setIsClearingReports(true);
+      try {
+        if (onClearReports) {
+          await onClearReports();
+        }
+        setToastMessage("Seluruh data laporan berhasil dibersihkan!");
+        setTimeout(() => setToastMessage(''), 3000);
+      } catch (e) {
+        alert("Gagal menghapus laporan.");
+      } finally {
+        setIsClearingReports(false);
+      }
+    }
   };
 
   const handleResetData = async () => {
@@ -173,6 +193,23 @@ export default function SettingsView({
                   <span>Pulihkan Data (Upload JSON)</span>
                 </button>
               </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-0.5 text-center sm:text-left">
+                <span className="font-bold text-slate-700 dark:text-slate-200">Kosongkan Laporan Kerusakan</span>
+                <p className="text-[10px] text-slate-400 font-light">Hapus seluruh riwayat aduan dan laporan kerusakan dari database (Sektor, Kategori, & Aset tetap aman).</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClearAllReports}
+                disabled={isClearingReports}
+                className="px-5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 dark:bg-amber-950/20 dark:hover:bg-amber-950/40 rounded-xl font-bold transition flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isClearingReports ? 'animate-spin' : ''}`} />
+                <span>{isClearingReports ? 'Membersihkan...' : 'Kosongkan Semua Laporan'}</span>
+              </button>
             </div>
 
             <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-4">

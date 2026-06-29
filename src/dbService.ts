@@ -636,17 +636,7 @@ export const ensureDatabaseSeeded = async () => {
       localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(SEED_ASSETS));
 
       // Save reports
-      const seedReports = generateHistoricalReports();
-      if (isFirebaseAvailable()) {
-        try {
-          const repCol = collection(db, "reports");
-          for (const rep of seedReports) {
-            await addDoc(repCol, rep);
-          }
-        } catch (e) {
-          console.error("Failed to seed reports to Firestore:", e);
-        }
-      }
+      const seedReports: Report[] = [];
       localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(seedReports));
 
       // Seed default user profiles in local
@@ -698,6 +688,37 @@ export const ensureDatabaseSeeded = async () => {
     }
   } catch (error) {
     console.error("Failed to seed database:", error);
+  }
+};
+
+export const purgeDemoReports = async (): Promise<void> => {
+  try {
+    if (isFirebaseAvailable()) {
+      const repCol = collection(db, "reports");
+      const snap = await getDocs(repCol);
+      const demoReporters = ["Ahmad Syaifuddin", "Siti Fatimah", "Yusuf Habibi", "Nur Hidayat", "Humas SCB", "Rina Kartika"];
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data() as Report;
+        if (!data.reporter || demoReporters.includes(data.reporter) || docSnap.id.startsWith("demo-")) {
+          await deleteDoc(doc(db, "reports", docSnap.id));
+        }
+      }
+    }
+    
+    const local = localStorage.getItem(STORAGE_KEYS.REPORTS);
+    if (local) {
+      const reports = JSON.parse(local) as Report[];
+      const demoReporters = ["Ahmad Syaifuddin", "Siti Fatimah", "Yusuf Habibi", "Nur Hidayat", "Humas SCB", "Rina Kartika"];
+      const filtered = reports.filter(r => r.reporter && !demoReporters.includes(r.reporter));
+      localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(filtered));
+    } else {
+      localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify([]));
+    }
+    
+    localStorage.setItem("scb_demo_reports_purged", "true");
+    console.log("Demo reports purged successfully.");
+  } catch (e) {
+    console.error("Failed to purge demo reports:", e);
   }
 };
 
@@ -1363,6 +1384,7 @@ export const clearAndSeedAll = async (): Promise<void> => {
   localStorage.removeItem(STORAGE_KEYS.LOCATIONS);
   localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
   localStorage.removeItem(STORAGE_KEYS.USERS);
+  localStorage.setItem("scb_demo_reports_purged", "true");
   
   await ensureDatabaseSeeded();
 };

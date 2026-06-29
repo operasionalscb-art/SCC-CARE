@@ -91,6 +91,11 @@ export default function App() {
       // Ensure database is seeded with initial data if empty
       await dbService.ensureDatabaseSeeded();
 
+      // Automatically purge demo/historical reports once to start fresh
+      if (localStorage.getItem("scb_demo_reports_purged") !== "true") {
+        await dbService.purgeDemoReports();
+      }
+
       // Sync reports
       const reps = await dbService.getReports();
       setReports(reps);
@@ -289,6 +294,20 @@ export default function App() {
   const handleDestroyCategory = async (id: string) => {
     await dbService.deleteCategory(id);
     setCategories(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleClearReports = async () => {
+    setIsLoading(true);
+    try {
+      await dbService.purgeDemoReports();
+      const refreshedReports = await dbService.getReports();
+      setReports(refreshedReports);
+    } catch (e) {
+      console.error(e);
+      alert("Gagal mengosongkan laporan.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Reset database entirely to mock seeds
@@ -522,6 +541,7 @@ export default function App() {
             onResetDatabase={handleResetDatabase}
             onBackupDatabase={handleBackupDatabase}
             onRestoreDatabase={handleRestoreDatabase}
+            onClearReports={handleClearReports}
           />
         );
       default:
