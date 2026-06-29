@@ -50,6 +50,7 @@ export default function App() {
   const [showSelfReg, setShowSelfReg] = useState(false);
   const [selfRegName, setSelfRegName] = useState('');
   const [selfRegEmail, setSelfRegEmail] = useState('');
+  const [selfRegPassword, setSelfRegPassword] = useState('');
   const [selfRegDivision, setSelfRegDivision] = useState('Asrama');
   const [selfRegSuccess, setSelfRegSuccess] = useState(false);
 
@@ -176,6 +177,10 @@ export default function App() {
     try {
       const dbProfile = await dbService.getUserProfileByEmail(trimmedEmail);
       if (dbProfile) {
+        if (dbProfile.password && dbProfile.password !== password) {
+          setLoginError('Password yang Anda masukkan salah!');
+          return;
+        }
         setCurrentUser(dbProfile);
         setIsAuthenticated(true);
         setLoginEmail('');
@@ -337,8 +342,8 @@ export default function App() {
   // Handle User Self-Registration on login page
   const handleSelfRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selfRegName.trim() || !selfRegEmail.trim()) {
-      alert("Nama dan email wajib diisi!");
+    if (!selfRegName.trim() || !selfRegEmail.trim() || !selfRegPassword.trim()) {
+      alert("Nama, email, dan password wajib diisi!");
       return;
     }
     try {
@@ -349,6 +354,7 @@ export default function App() {
         email: selfRegEmail.trim().toLowerCase(),
         role: 'Pegawai',
         division: selfRegDivision,
+        password: selfRegPassword.trim(),
         photoURL: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 999999)}?auto=format&fit=crop&q=80&w=150`,
         createdAt: new Date().toISOString()
       };
@@ -357,6 +363,7 @@ export default function App() {
       setSelfRegSuccess(true);
       setSelfRegName('');
       setSelfRegEmail('');
+      setSelfRegPassword('');
       setSelfRegDivision('Asrama');
       setTimeout(() => {
         setSelfRegSuccess(false);
@@ -583,6 +590,19 @@ export default function App() {
                       value={selfRegEmail}
                       onChange={(e) => setSelfRegEmail(e.target.value)}
                       required
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password</label>
+                    <input
+                      type="password"
+                      placeholder="Buat password minimal 6 karakter"
+                      value={selfRegPassword}
+                      onChange={(e) => setSelfRegPassword(e.target.value)}
+                      required
+                      minLength={6}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>

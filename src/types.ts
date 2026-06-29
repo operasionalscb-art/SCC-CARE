@@ -8,6 +8,7 @@ export interface UserProfile {
   division: string;
   photo?: string;
   photoURL?: string;
+  password?: string;
   createdAt: string;
   permissions?: Record<string, boolean>;
 }

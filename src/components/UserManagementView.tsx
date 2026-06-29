@@ -51,6 +51,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   const [showAddForm, setShowAddForm] = useState(false);
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState<UserRole>('Pegawai');
   const [regDivision, setRegDivision] = useState('Asrama');
   const [submitting, setSubmitting] = useState(false);
@@ -106,8 +107,8 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
   // Handle register/add user profile
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName.trim() || !regEmail.trim()) {
-      alert("Nama dan email wajib diisi!");
+    if (!regName.trim() || !regEmail.trim() || !regPassword.trim()) {
+      alert("Nama, email, dan password wajib diisi!");
       return;
     }
 
@@ -121,6 +122,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
         email: regEmail.trim().toLowerCase(),
         role: regRole,
         division: regDivision,
+        password: regPassword.trim(),
         photoURL: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 999999)}?auto=format&fit=crop&q=80&w=150`,
         createdAt: new Date().toISOString(),
         permissions: regPermissions
@@ -132,6 +134,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
       setUsers(prev => [...prev, newProfile]);
       setRegName('');
       setRegEmail('');
+      setRegPassword('');
       setRegRole('Pegawai');
       setRegDivision('Asrama');
       setRegPermissions(getRoleDefaultPermissions('Pegawai'));
@@ -267,7 +270,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
             Registrasi Pengguna Baru
           </h3>
 
-          <form onSubmit={handleRegisterUser} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <form onSubmit={handleRegisterUser} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             {/* Full Name */}
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nama Lengkap</label>
@@ -290,6 +293,20 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
                 required
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+              />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Password</label>
+              <input
+                type="password"
+                placeholder="Minimal 6 karakter"
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                required
+                minLength={6}
                 className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
               />
             </div>
@@ -323,7 +340,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
             </div>
 
             {/* Kustomisasi Hak Akses */}
-            <div className="md:col-span-4 space-y-3 mt-4 pt-4 border-t dark:border-slate-700/50">
+            <div className="lg:col-span-5 md:col-span-4 space-y-3 mt-4 pt-4 border-t dark:border-slate-700/50">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                 <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
                   <Shield className="w-4 h-4 text-primary" />
@@ -358,7 +375,7 @@ export default function UserManagementView({ currentUser }: UserManagementViewPr
             </div>
 
             {/* Submit button */}
-            <div className="md:col-span-4 flex justify-end gap-2 pt-4 border-t dark:border-slate-700/50 mt-2">
+            <div className="lg:col-span-5 md:col-span-4 flex justify-end gap-2 pt-4 border-t dark:border-slate-700/50 mt-2">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
